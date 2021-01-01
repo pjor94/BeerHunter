@@ -37,4 +37,5 @@ out/
 .vscode/
 
 src/main/generated/java
+src/main/resources
 test-reports
