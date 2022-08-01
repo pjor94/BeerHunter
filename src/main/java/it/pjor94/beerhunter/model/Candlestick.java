@@ -1,24 +1,41 @@
 package it.pjor94.beerhunter.model;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import org.bson.codecs.pojo.annotations.BsonProperty;
+import org.springframework.data.annotation.AccessType;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
+import org.springframework.data.mongodb.core.mapping.FieldType;
 
 import java.math.BigDecimal;
 
+import static org.springframework.data.mongodb.core.mapping.FieldType.DECIMAL128;
+import static org.springframework.data.mongodb.core.mapping.FieldType.STRING;
+
 @ToString
+@Document
 public class Candlestick  {
 
     @Id
+    @BsonProperty("id")
     @Getter @Setter
     private String id;
+    @BsonProperty("pair")
     @Setter @Getter
     private String pair;
+    @BsonProperty("openTime")
     @Getter @Setter
     private Long openTime;
-    @Getter @Setter
+    @Getter()
+    @Setter()
+    @AccessType(AccessType.Type.FIELD)
+    @Field(targetType = STRING)
     private BigDecimal open;
+    @BsonProperty("high")
     @Getter @Setter
     private BigDecimal high;
     @Getter @Setter

@@ -1,69 +1,28 @@
 plugins {
-	id 'org.springframework.boot' version '2.4.1'
-	id 'io.spring.dependency-management' version '1.0.10.RELEASE'
-	id 'java'
-	id 'idea'
+    id 'org.springframework.boot' version '2.4.1'
+    id 'io.spring.dependency-management' version '1.0.10.RELEASE'
+    id 'java'
+    id 'idea'
+    id 'antlr'
 
 }
-
-
 
 group = 'it.pjor94'
 version = '0.0.1-SNAPSHOT'
 sourceCompatibility = '11'
 
 configurations {
-	antlr
-	compile.extendsFrom antlr
-	compileOnly {
-		extendsFrom annotationProcessor
-	}
+    antlr
+    compile.extendsFrom antlr
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
 }
 
 repositories {
-	mavenCentral()
-	maven { url 'https://jitpack.io' }
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
 
-}
-
-dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
-	implementation 'org.springframework.boot:spring-boot-starter-security'
-	implementation 'org.springframework.boot:spring-boot-starter-validation'
-	implementation 'org.springframework.boot:spring-boot-starter-actuator'
-	implementation 'org.springframework.boot:spring-boot-starter-web'
-	compileOnly 'org.projectlombok:lombok'
-	annotationProcessor 'org.projectlombok:lombok'
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testImplementation 'org.springframework.security:spring-security-test'
-	antlr "org.antlr:antlr4:4.7.1"
-	implementation "org.antlr:antlr4-runtime:4.7.1"
-	implementation 'commons-collections:commons-collections:3.2.2'
-	implementation 'io.jsonwebtoken:jjwt:0.9.0'
-	implementation 'javax.xml.bind:jaxb-api:2.3.0'
-	implementation 'org.ta4j:ta4j-core:0.13'
-	compileOnly 'org.projectlombok:lombok:1.18.16'
-	implementation 'com.github.binance-exchange:binance-java-api:master-SNAPSHOT'
-	implementation 'org.apache.poi:poi-ooxml:4.1.2'
-
-}
-def destDir = "${project.projectDir}/src/main/generated/java/it/pjor94/parser"
-def genDir ="${project.projectDir}/src/main/generated/java"
-def resourcesDir = "${project.projectDir}/src/main/resources/token"
-def generatedSourcesDir = file(genDir)
-
-sourceSets {
-	main {
-		java { srcDir genDir  }
-		output.dir(resourcesDir, builtBy: 'copyGeneratedTokens')
-	}
-
-}
-idea {
-	module {
-		sourceDirs += generatedSourcesDir
-		generatedSourceDirs += generatedSourcesDir
-	}
 }
 
 test{
@@ -71,43 +30,166 @@ test{
 	maxHeapSize = "4096m"
 }
 
-task generateParser(type: JavaExec) {
-	def outputDir = "${buildDir}/generated-sources/antlr4"
-	def target = "${project.projectDir}/src/main/antlr4/Strategy.g4"
-	inputs.file target
-	outputs.dir outputDir
-	workingDir = 'grammars'
-	classpath = configurations.antlr
-	args += [
-			'-o',
-			outputDir,
-			'-package',
-			'it.pjor94.parser',
-			target
-	]
-	main = 'org.antlr.v4.Tool'
-}
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+//    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 
-task copyGeneratedParser(type: Sync, dependsOn: generateParser) {
-	from generateParser
-	into destDir
-	include '**/*.java'
-}
-task copyGeneratedTokens(type: Sync, dependsOn: generateParser) {
-	from generateParser
-	into resourcesDir
-	include '**/*.tokens'
-}
+//    implementation 'org.mongodb:mongodb-driver:3.12.8'
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+//    implementation 'org.mongodb:mongo-java-driver:3.12.6'
+    antlr "org.antlr:antlr4:4.7.1"
+    implementation "org.antlr:antlr4-runtime:4.7.1"
+    implementation 'commons-collections:commons-collections:3.2.2'
+    implementation 'io.jsonwebtoken:jjwt:0.9.0'
+    implementation 'javax.xml.bind:jaxb-api:2.3.0'
+    implementation 'org.ta4j:ta4j-core:0.13'
+    compileOnly 'org.projectlombok:lombok:1.18.16'
+    implementation 'com.github.binance-exchange:binance-java-api:master-SNAPSHOT'
+    implementation 'org.apache.poi:poi-ooxml:4.1.2'
 
-compileJava.dependsOn copyGeneratedParser, copyGeneratedTokens
-clean.doFirst {
-	delete "${project.projectDir}/src/main/generated/java"
-	delete fileTree(resourcesDir) {
-		include '**/*.tokens'
-	}
 
 }
+//def destDir = "${project.projectDir}/src/main/generated/java/it/pjor94/parser"
+//def genDir ="${project.projectDir}/src/main/generated/"
+//def genDirJava ="${genDir}/java"
+//def genDirJS ="${genDir}/js"
+//def resourcesDir = "${project.projectDir}/src/main/resources/token"
+//def generatedSourcesDir = file(genDir)
+
+generateGrammarSource {
+    maxHeapSize = "128m"
+    def target = "${project.projectDir}/src/main/antlr/Strategy.g4"
+    outputDirectory = file("${buildDir}/generated-src/antlr/main/it/pjor94/parser")
+    inputs.file target
+    arguments += ['-package', 'it.pjor94.parser', '-visitor']
+}
+
+task pippoJS(type: AntlrTask) {
+    maxHeapSize = "128m"
+    def lexerName = "StrategyLexer"
+    def parserName = "Strategy"
+    def target = "${project.projectDir}/src/main/antlr/Strategy.g4"
+    inputs.file target
+    inputs.file("${buildDir}/generated-src/antlr/main/it/pjor94/parser/${lexerName}.tokens")
+    outputs.file("${project.projectDir}/src/main/js/generated/${parserName}.js")
+    outputs.file("${project.projectDir}/src/main/js/generated/${parserName}.interp")
+    outputs.file("${project.projectDir}/src/main/js/generated/${parserName}.tokens")
+    outputDirectory = file("${project.projectDir}/src/main/js/generated")
+    arguments += ['-Dlanguage=JavaScript' ,'-o', "${project.projectDir}/src/main/js/generated"]
+
+}
+
+
+compileJava.dependsOn generateGrammarSource,pippoJS
+sourceSets {
+    generated {
+        java.srcDir 'generated-src/antlr/main/'
+    }
+}
+compileJava.source sourceSets.generated.java, sourceSets.main.java
+clean {
+    delete "generated-src"
+    delete "${project.projectDir}/src/main/js/generated/"
+}
+idea {
+    module {
+        sourceDirs += file("generated-src/antlr/main/")
+    }
+}
+
+
+//sourceSets {
+//	main {
+//		java { srcDir genDirJava  }
+//		output.dir(resourcesDir, builtBy: 'copyGeneratedTokens')
+//	}
+//
+//}
+//idea {
+//	module {
+//		sourceDirs += generatedSourcesDir
+//		generatedSourceDirs += generatedSourcesDir
+//	}
+//}
+//
+
+//
+//task generateParser(type: JavaExec) {
+//	def outputDir = "${buildDir}/generated-sources/antlr4"
+//	def target = "${project.projectDir}/src/main/antlr4/Strategy.g4"
+//	inputs.file target
+//	outputs.dir outputDir
+//	workingDir = 'grammars'
+//	classpath = configurations.antlr
+//	args += [
+//			'-o',
+//			outputDir,
+//			'-package',
+//			'it.pjor94.parser',
+//			target
+//	]
+//	main = 'org.antlr.v4.Tool'
+//}
+//
+//task generateLexerJS(type:JavaExec) {
+//	def lexerName = "Strategy"
+//	inputs.file("${project.projectDir}/src/main/antlr4/Strategy.g4")
+//	outputs.file("${project.projectDir}/src/main/resources/token/${lexerName}.js")
+//	outputs.file("${project.projectDir}/src/main/resources/token/${lexerName}.interp")
+//	outputs.file("${project.projectDir}/src/main/resources/token/${lexerName}.tokens")
+//	main = 'org.antlr.v4.Tool'
+//	classpath = sourceSets.main.runtimeClasspath
+//	args = ['-Dlanguage=JavaScript', "${project.projectDir}/src/main/antlr4/Strategy.g4", '-o', "${buildDir}/generated-sources/antlr4javascript"]
+//	workingDir = 'grammars'
+//}
+//task generateParserJS(type:JavaExec) {
+//	dependsOn generateLexerJS
+//	def lexerName = "StrategyLexer"
+//	def parserName = "Strategy"
+//	inputs.file("${project.projectDir}/src/main/antlr4/Strategy.g4")
+//	inputs.file("${project.projectDir}/src/main/resources/token/${lexerName}.tokens")
+//	outputs.file("${project.projectDir}/src/main/resources/token/${parserName}.js")
+//	outputs.file("${project.projectDir}/src/main/resources/token/${parserName}.interp")
+//	outputs.file("${project.projectDir}/src/main/resources/token/${parserName}.tokens")
+//	main = 'org.antlr.v4.Tool'
+//	classpath = sourceSets.main.runtimeClasspath
+//	args = ['-Dlanguage=JavaScript', "${project.projectDir}/src/main/antlr4/Strategy.g4", '-no-listener', '-no-visitor', '-o', "${buildDir}/generated-sources/antlr4javascript"]
+//	workingDir = 'grammars'
+//}
+//
+//task copyGeneratedParser(type: Sync, dependsOn: generateParser) {
+//	from generateParser
+//	into destDir
+//	include '**/*.java'
+//}
+//
+//task copyGeneratedTokens(type: Sync, dependsOn: generateParser) {
+//	from generateParser
+//	into resourcesDir
+//	include '**/*.tokens'
+//}
+//
+//
+//
+//compileJava.dependsOn copyGeneratedParser, copyGeneratedTokens
+
+//clean.doFirst {
+//	delete "${genDirJava}"
+//	delete "${genDirJS}"
+//	delete fileTree(resourcesDir) {
+//		include '**/*.tokens'
+//	}
+//
+//}
+
 
 test {
-	useJUnitPlatform()
+    useJUnitPlatform()
 }

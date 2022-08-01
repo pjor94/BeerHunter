@@ -26,6 +26,8 @@ public class Utils {
         timeframesDurations.put("30m",Duration.ofMinutes(30L));
         timeframesDurations.put("1h", Duration.ofMinutes(60L));
         timeframesDurations.put("4h", Duration.ofMinutes(240L));
+        timeframesDurations.put("8h", Duration.ofMinutes(480L));
+        timeframesDurations.put("1d", Duration.ofMinutes(1440L));
     }
 
     static Long toStartOfTheDay(Long timestamp){

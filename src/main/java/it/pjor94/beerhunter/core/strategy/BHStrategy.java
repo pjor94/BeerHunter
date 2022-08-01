@@ -1,9 +1,13 @@
 package it.pjor94.beerhunter.core.strategy;
 
 import it.pjor94.beerhunter.core.trading.BHTradingRecord;
+import lombok.Getter;
+import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.ta4j.core.*;
+import org.ta4j.core.num.DoubleNum;
+import org.ta4j.core.num.Num;
 
 public class BHStrategy implements Strategy {
 
@@ -21,6 +25,13 @@ public class BHStrategy implements Strategy {
 
     /** The exit rule */
     private Rule exitRule;
+
+    @Setter @Getter
+    private Num quoteAssetAmount = DoubleNum.valueOf(0);
+    @Setter @Getter
+    private Num baseAssetAmount = DoubleNum.valueOf(0);
+    @Setter @Getter
+    private Num tradeAmount = DoubleNum.valueOf(0);
 
     /**
      * The unstable period (number of bars).<br>
@@ -115,29 +126,30 @@ public class BHStrategy implements Strategy {
         return index < unstablePeriod;
     }
 
-    @Override
-    public boolean shouldEnter(int index, TradingRecord tradingRecord) {
+
+    public boolean shouldEnter(int index, BHTradingRecord tradingRecord) {
         boolean enter = Strategy.super.shouldEnter(index, tradingRecord);
         traceShouldEnter(index, enter);
+        tradingRecord.getLastTrade();
         return enter;
     }
 
-    @Override
-    public boolean shouldExit(int index, TradingRecord tradingRecord) {
+
+    public boolean shouldExit(int index, BHTradingRecord tradingRecord) {
         boolean exit = Strategy.super.shouldExit(index, tradingRecord);
         traceShouldExit(index, exit);
         return exit;
     }
 
     @Override
-    public Strategy and(Strategy strategy) {
+    public Strategy and(org.ta4j.core.Strategy strategy) {
         String andName = "and(" + name + "," + strategy.getName() + ")";
         int unstable = Math.max(unstablePeriod, strategy.getUnstablePeriod());
         return and(andName, strategy, unstable);
     }
 
     @Override
-    public Strategy or(Strategy strategy) {
+    public Strategy or(org.ta4j.core.Strategy strategy) {
         String orName = "or(" + name + "," + strategy.getName() + ")";
         int unstable = Math.max(unstablePeriod, strategy.getUnstablePeriod());
         return or(orName, strategy, unstable);
@@ -145,18 +157,18 @@ public class BHStrategy implements Strategy {
 
     @Override
     public Strategy opposite() {
-        return new BaseStrategy("opposite(" + name + ")", exitRule, entryRule, unstablePeriod);
+        return new BHStrategy("opposite(" + name + ")", exitRule, entryRule, unstablePeriod);
     }
 
     @Override
-    public Strategy and(String name, Strategy strategy, int unstablePeriod) {
-        return new BaseStrategy(name, entryRule.and(strategy.getEntryRule()), exitRule.and(strategy.getExitRule()),
+    public Strategy and(String name, org.ta4j.core.Strategy strategy, int unstablePeriod) {
+        return  new BHStrategy(name, entryRule.and(strategy.getEntryRule()), exitRule.and(strategy.getExitRule()),
                 unstablePeriod);
     }
 
     @Override
-    public Strategy or(String name, Strategy strategy, int unstablePeriod) {
-        return new BaseStrategy(name, entryRule.or(strategy.getEntryRule()), exitRule.or(strategy.getExitRule()),
+    public Strategy or(String name, org.ta4j.core.Strategy strategy, int unstablePeriod) {
+        return new BHStrategy(name, entryRule.or(strategy.getEntryRule()), exitRule.or(strategy.getExitRule()),
                 unstablePeriod);
     }
 
@@ -165,14 +177,9 @@ public class BHStrategy implements Strategy {
      * @param tradingRecord the potentially needed trading history
      * @return true to recommend an order, false otherwise (no recommendation)
      */
+    @Override
     public boolean shouldOperate(int index, BHTradingRecord tradingRecord) {
-        Trade trade = tradingRecord.getCurrentTrade();
-        if (trade.isNew()) {
-            return shouldEnter(index, tradingRecord);
-        } else if (trade.isOpened()) {
-            return shouldExit(index, tradingRecord);
-        }
-        return false;
+        return shouldEnter(index, tradingRecord) || shouldExit(index, tradingRecord);
     }
 
     /**

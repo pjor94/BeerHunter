@@ -127,7 +127,7 @@ public class BarSeriesGenerator implements MultiBarSeries {
         return IntStream.range(0, endTimesGrid.get(timeframe).size()).filter(i -> {
             LocalTime bigBarEndTime = endTimesGrid.get(timeframe).get(i);
             return (smallBarBeginTime.isBefore(bigBarEndTime));
-        }).findFirst().orElse(endTimesGrid.size() - 1);
+        }).findFirst().orElse(endTimesGrid.get(timeframe).size() - 1);
     }
 
     private Duration cutBigBarTimePeriodIfExceedMidnight(String timeframe,int currentBigBarEndTimeIndex) {

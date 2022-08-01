@@ -1,7 +1,7 @@
 package it.pjor94.beerhunter.core.trading;
 
-import it.pjor94.beerhunter.core.CacheManager;
 import it.pjor94.beerhunter.core.strategy.*;
+import it.pjor94.beerhunter.core.strategy.Strategy;
 import it.pjor94.parser.StrategyLexer;
 import it.pjor94.parser.StrategyParser;
 import lombok.Getter;
@@ -38,7 +38,9 @@ public class StrategyManager  {
     public void setStrategy(Strategy strategy){
         this.strategy=strategy;
     }
-
+    public void setTradeAmount(Num tradeAmount){
+        this.strategy.setTradeAmount(tradeAmount);
+    }
     private Strategy parseStrategy(String strategy,BarSeries timeSeries) throws ParserException {
         ErrorListener errorListener = new ErrorListener();
         CodePointCharStream stream = CharStreams.fromString(strategy);
@@ -84,49 +86,47 @@ public class StrategyManager  {
         this(barSeries, transactionCostModel);
         this.strategy= parseStrategy(strategy,barSeries);
     }
-
-    public TradingRecord run (){
+    @SneakyThrows
+    public StrategyManager(String strategy, BarSeries barSeries, CostModel transactionCostModel,Num baseAssetAmmount,Num quoteAssetAmmount) {
+        this(strategy, barSeries, transactionCostModel);
+        this.strategy.setBaseAssetAmount(baseAssetAmmount);
+        this.strategy.setQuoteAssetAmount(quoteAssetAmmount);
+    }
+    public BHTradingRecord run (){
         return run( Order.OrderType.BUY);
     }
-    public TradingRecord run( int startIndex, int finishIndex) {
+    public BHTradingRecord run( int startIndex, int finishIndex) {
         return run( Order.OrderType.BUY, barSeries.numOf(1), startIndex, finishIndex);
     }
-    public TradingRecord run( Order.OrderType orderType) {
+    public BHTradingRecord run( Order.OrderType orderType) {
         return run( orderType, barSeries.numOf(1));
     }
-    public TradingRecord run( Order.OrderType orderType, int startIndex, int finishIndex) {
+    public BHTradingRecord run( Order.OrderType orderType, int startIndex, int finishIndex) {
         return run( orderType, barSeries.numOf(1), startIndex, finishIndex);
     }
-    public TradingRecord run( Order.OrderType orderType, Num amount) {
+    public BHTradingRecord run( Order.OrderType orderType, Num amount) {
         return run( orderType, amount, barSeries.getBeginIndex(), barSeries.getEndIndex());
     }
-
-    public TradingRecord run( Order.OrderType orderType, Num amount, int startIndex, int finishIndex) {
+    public BHTradingRecord run( Order.OrderType orderType, Num amount, int startIndex, int finishIndex) {
         int runBeginIndex = Math.max(startIndex, barSeries.getBeginIndex());
         int runEndIndex = Math.min(finishIndex, barSeries.getEndIndex());
         log.trace("Running strategy (indexes: {} -> {}): {} (starting with {})", runBeginIndex, runEndIndex, strategy, orderType);
         BHTradingRecord tradingRecord = new BHTradingRecord(orderType, transactionCostModel, new ZeroCostModel());
+        tradingRecord.setBaseAssetAmount(strategy.getBaseAssetAmount());
+        tradingRecord.setQuoteAssetAmount(strategy.getQuoteAssetAmount());
+        tradingRecord.setTradeAmount(strategy.getTradeAmount());
         for (int i = runBeginIndex; i <= runEndIndex; i++) {
             // For each bar between both indexes...
-            if (strategy.shouldOperate(i, tradingRecord)) {
-                tradingRecord.operate(i, barSeries.getBar(i).getClosePrice(), amount);
+            Bar bar = barSeries.getBar(i);
+            if(strategy.shouldEnter(i,tradingRecord)){
+                tradingRecord.enter(i,bar.getClosePrice());
             }
+            if(strategy.shouldExit(i,tradingRecord)){
+                tradingRecord.exit(i,bar.getClosePrice());
+            }
+
         }
 
-        if (!tradingRecord.isClosed()) {
-            // If the last trade is still opened, we search out of the run end index.
-            // May works if the end index for this run was inferior to the actual number of
-            // bars
-            int seriesMaxSize = Math.max(barSeries.getEndIndex() + 1, barSeries.getBarData().size());
-            for (int i = runEndIndex + 1; i < seriesMaxSize; i++) {
-                // For each bar after the end index of this run...
-                // --> Trying to close the last trade
-                if (strategy.shouldOperate(i, tradingRecord)) {
-                    tradingRecord.operate(i, barSeries.getBar(i).getClosePrice(), amount);
-                    break;
-                }
-            }
-        }
         return tradingRecord;
     }
 

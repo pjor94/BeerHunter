@@ -1,19 +1,35 @@
 package it.pjor94.beerhunter.core.trading;
 
+import lombok.Getter;
+import lombok.Setter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.ta4j.core.BaseTradingRecord;
 import org.ta4j.core.Order;
 import org.ta4j.core.Trade;
 import org.ta4j.core.TradingRecord;
 import org.ta4j.core.cost.CostModel;
 import org.ta4j.core.cost.ZeroCostModel;
+import org.ta4j.core.num.DoubleNum;
 import org.ta4j.core.num.Num;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class BHTradingRecord implements TradingRecord {
+    protected final Logger log = LoggerFactory.getLogger(getClass());
 
     private static final long serialVersionUID = -4436851731855891220L;
+    @Setter
+    @Getter
+    private Num quoteAssetAmount = DoubleNum.valueOf(0);
+    @Setter
+    @Getter
+    private Num baseAssetAmount = DoubleNum.valueOf(0);
+    @Setter
+    private Num tradeAmount = DoubleNum.valueOf(0);
 
     private List<Order> orders = new ArrayList<>();
     /**
@@ -43,24 +59,70 @@ public class BHTradingRecord implements TradingRecord {
     /**
      * The current non-closed trade (there's always one)
      */
+    private List<Trade> currentTrades = new ArrayList<>();
     private Trade currentTrade;
+
+    private Trade currentTradeToCloese;
+
+    private boolean hasOpenTrade() {
+        return currentTrades.stream().anyMatch(Trade::isOpened);
+    }
+
+    private boolean hasNewTrade() {
+        return currentTrades.stream().anyMatch(Trade::isNew);
+    }
+
+    private boolean hasClosedTrade() {
+        return currentTrades.stream().anyMatch(Trade::isClosed);
+    }
+
+    private Trade getNewTrade() {
+        List<Trade> trades = currentTrades.stream()
+                .filter(Trade::isNew).collect(Collectors.toList());
+        return !trades.isEmpty() ? trades.get(0) : null;
+    }
+
+    private Trade getFirstOpenTrade() {
+        List<Trade> trades = currentTrades.stream()
+                .filter(Trade::isOpened).sorted(Comparator.comparing((Trade trade) -> trade.getEntry().getIndex())).collect(Collectors.toList());
+        //.filter(Trade::isOpened).sorted(Comparator.comparingInt((trade) -> trade.getEntry().getIndex())).collect(Collectors.toList());
+        return !trades.isEmpty() ? trades.get(0) : null;
+    }
+
+    private Trade getCloseTrade() {
+        List<Trade> trades = currentTrades.stream()
+                .filter(Trade::isClosed).sorted(Comparator.comparing((Trade trade) -> trade.getEntry().getIndex())).collect(Collectors.toList());
+        return !trades.isEmpty() ? trades.get(0) : null;
+    }
+
+    public List<Trade> getOpenTrades() {
+        return currentTrades.stream()
+                .filter(Trade::isOpened).sorted(Comparator.comparing((Trade trade) -> trade.getEntry().getIndex())).collect(Collectors.toList());
+    }
+
+
     /**
      * Trading cost models
      */
     private CostModel transactionCostModel;
     private CostModel holdingCostModel;
+
+    private boolean primordiale = false;
+
     /**
      * Constructor.
      */
     public BHTradingRecord() {
         this(Order.OrderType.BUY);
     }
+
     /**
      * Constructor.
      */
     public BHTradingRecord(Order.OrderType orderType) {
         this(orderType, new ZeroCostModel(), new ZeroCostModel());
     }
+
     /**
      * Constructor.
      *
@@ -70,7 +132,7 @@ public class BHTradingRecord implements TradingRecord {
      * @param holdingCostModel     the cost model for holding asset (e.g. borrowing)
      */
     public BHTradingRecord(Order.OrderType entryOrderType, CostModel transactionCostModel,
-                             CostModel holdingCostModel) {
+                           CostModel holdingCostModel) {
         if (entryOrderType == null) {
             throw new IllegalArgumentException("Starting type must not be null");
         }
@@ -78,73 +140,107 @@ public class BHTradingRecord implements TradingRecord {
         this.transactionCostModel = transactionCostModel;
         this.holdingCostModel = holdingCostModel;
         currentTrade = new Trade(entryOrderType, transactionCostModel, holdingCostModel);
+        currentTrades.add(new Trade(entryOrderType, transactionCostModel, holdingCostModel));
     }
 
-    /**
-     * Constructor.
-     *
-     * @param orders the orders to be recorded (cannot be empty)
-     */
-    public BHTradingRecord(Order... orders) {
-        this(new ZeroCostModel(), new ZeroCostModel(), orders);
-    }
 
-    /**
-     * Constructor.
-     *
-     * @param transactionCostModel the cost model for transactions of the asset
-     * @param holdingCostModel     the cost model for holding asset (e.g. borrowing)
-     * @param orders               the orders to be recorded (cannot be empty)
-     */
-    public BHTradingRecord(CostModel transactionCostModel, CostModel holdingCostModel, Order... orders) {
-        this(orders[0].getType(), transactionCostModel, holdingCostModel);
-        for (Order o : orders) {
-            boolean newOrderWillBeAnEntry = currentTrade.isNew();
-            if (newOrderWillBeAnEntry && o.getType() != startingType) {
-                // Special case for entry/exit types reversal
-                // E.g.: BUY, SELL,
-                // BUY, SELL,
-                // SELL, BUY,
-                // BUY, SELL
-                currentTrade = new Trade(o.getType(), transactionCostModel, holdingCostModel);
-            }
-            Order newOrder = currentTrade.operate(o.getIndex(), o.getPricePerAsset(), o.getAmount());
-            recordOrder(newOrder, newOrderWillBeAnEntry);
-        }
+    public List<Trade> getCurrentTrades() {
+        return currentTrades;
     }
 
     @Override
     public Trade getCurrentTrade() {
-        return currentTrade;
+        return null;
     }
 
     @Override
     public void operate(int index, Num price, Num amount) {
-        if (currentTrade.isClosed()) {
-            // Current trade closed, should not occur
-            throw new IllegalStateException("Current trade should not be closed");
-        }
-        boolean newOrderWillBeAnEntry = currentTrade.isNew();
-        Order newOrder = currentTrade.operate(index, price, amount);
-        recordOrder(newOrder, newOrderWillBeAnEntry);
+//        if (currentTrade.isClosed()) {
+//            // Current trade closed, should not occur
+//            throw new IllegalStateException("Current trade should not be closed");
+//        }
+//        boolean newOrderWillBeAnEntry = currentTrade.isNew();
+//        Order newOrder = currentTrade.operate(index, price, amount);
+//        recordOrder(newOrder, newOrderWillBeAnEntry);
     }
 
     @Override
     public boolean enter(int index, Num price, Num amount) {
-        if (currentTrade.isNew()) {
-            operate(index, price, amount);
-            return true;
-        }
-        return false;
+        return enter(index, price);
     }
 
     @Override
     public boolean exit(int index, Num price, Num amount) {
-        if (currentTrade.isOpened()) {
-            operate(index, price, amount);
-            return true;
+        return exit(index, price);
+    }
+
+    private void operate(Trade trade, int index, Num price, Num amount) {
+        Order newOrder = trade.operate(index, price, amount);
+        // currentTrades.set(currenteTradeIndex,trade);
+        recordOrder(newOrder, trade.isNew());
+    }
+
+
+    public boolean enter(int index, Num price) {
+        if(primordiale){
+            if (canEnter(index, price)) {
+               if(currentTrade.isNew()){
+                   operate(currentTrade, index, price, tradeAmount);
+                   return true;
+               }
+            }
+        }else {
+            if (canEnter(index, price)) {
+                Trade trade = hasNewTrade() ? getNewTrade() : new Trade(Order.OrderType.BUY, transactionCostModel, holdingCostModel);
+                if (!hasNewTrade()) {
+                    currentTrades.add(trade);
+                }
+                if (trade.isNew()) {
+                    operate(trade, index, price, tradeAmount);
+                    return true;
+                }
+            }
         }
         return false;
+    }
+
+    private int noprofit = 10;
+
+    public boolean exit(int index, Num price) {
+        var hasDone = false;
+        if (primordiale) {
+            if (canExit(index, price)) {
+                if (currentTrade.isOpened() && price.isGreaterThan(currentTrade.getEntry().getNetPrice())) {
+                    operate(currentTrade, index, price, tradeAmount);
+                    hasDone = true;
+                }
+            }
+        } else {
+            if (canExit(index, price)) {
+                if (hasOpenTrade()) {
+                    var profittable = getOpenTrades().stream().filter((trade) -> price.isGreaterThan(trade.getEntry().getNetPrice())).collect(Collectors.toList());
+                    for (Trade trade : profittable) {
+                        if (canExit(index, price)) {
+                            if (price.isGreaterThan(trade.getEntry().getNetPrice())) {
+                                currentTradeToCloese = trade;
+                                operate(trade, index, price, tradeAmount);
+                                hasDone = true;
+                            }
+                        }
+                    }
+//                    if (profittable.isEmpty()) {
+//                        if (canExit(index, price)) {
+//                            currentTradeToCloese = getOpenTrades()
+//                                    .stream().sorted(Comparator.comparing((Trade t) -> t.getEntry().getNetPrice()))
+//                                    .collect(Collectors.toList()).stream().findFirst().get();
+//                            operate(currentTradeToCloese, index, price, tradeAmount);
+//                            hasDone = true;
+//                        }
+//                    }
+                }
+            }
+        }
+        return hasDone;
     }
 
     @Override
@@ -209,15 +305,44 @@ public class BHTradingRecord implements TradingRecord {
         if (Order.OrderType.BUY.equals(order.getType())) {
             // Storing the new order in buy orders list
             buyOrders.add(order);
+            log.info("------------------------------------");
+            log.info(String.valueOf(Order.OrderType.BUY));
+            log.info("Amount   " + order.getAmount());
+            log.info("Base Before   " + baseAssetAmount);
+            baseAssetAmount = baseAssetAmount.plus(order.getAmount());
+            log.info("Base After   " + baseAssetAmount);
+            log.info("Quote Before  " + quoteAssetAmount);
+            quoteAssetAmount = quoteAssetAmount.minus(order.getAmount().multipliedBy(order.getNetPrice()));
+            log.info("Quote After" + quoteAssetAmount);
         } else if (Order.OrderType.SELL.equals(order.getType())) {
             // Storing the new order in sell orders list
             sellOrders.add(order);
+            log.info("------------------------------------");
+            log.info(String.valueOf(Order.OrderType.SELL));
+            log.info("Amount   " + order.getAmount());
+            log.info("Base Before  " + baseAssetAmount);
+            baseAssetAmount = baseAssetAmount.minus(order.getAmount());
+            log.info("Base After  " + baseAssetAmount);
+            log.info("Quote Before  " + quoteAssetAmount);
+            quoteAssetAmount = quoteAssetAmount.plus(order.getAmount().multipliedBy(order.getNetPrice()));
+            log.info("Quote After  " + quoteAssetAmount);
         }
 
         // Storing the trade if closed
-        if (currentTrade.isClosed()) {
-            trades.add(currentTrade);
-            currentTrade = new Trade(startingType, transactionCostModel, holdingCostModel);
+        if(primordiale){
+            if (currentTrade.isClosed()) {
+                trades.add(currentTrade);
+                //currentTrades.remove(currentTradeToCloese);
+                //currentTrades.add(new Trade(startingType, transactionCostModel, holdingCostModel));
+                currentTrade = new Trade(startingType, transactionCostModel, holdingCostModel);
+            }
+        }else {
+            if (hasClosedTrade()) {
+                trades.add(currentTradeToCloese);
+                currentTrades.remove(currentTradeToCloese);
+                //currentTrades.add(new Trade(startingType, transactionCostModel, holdingCostModel));
+                //currentTrade = new Trade(startingType, transactionCostModel, holdingCostModel);
+            }
         }
     }
 
@@ -229,5 +354,14 @@ public class BHTradingRecord implements TradingRecord {
             sb.append(order.toString()).append("\n");
         }
         return sb.toString();
+    }
+
+
+    private boolean canEnter(int index, Num price) {
+        return quoteAssetAmount.isGreaterThanOrEqual(tradeAmount.multipliedBy(price));
+    }
+
+    private boolean canExit(int index, Num price) {
+        return baseAssetAmount.isGreaterThanOrEqual(tradeAmount);
     }
 }

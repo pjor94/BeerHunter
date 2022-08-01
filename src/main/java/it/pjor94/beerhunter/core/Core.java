@@ -39,7 +39,14 @@ public class Core {
         List<String> pairs= new ArrayList<>();
         pairs.add("BTCUSDT");
         pairs.add("ETHEUR");
-        pairs.forEach((pair)-> barSeriesCacheManager.startMultiBarSeries(pair));
+        pairs.add("GRTUSDT");
+        pairs.add("EOSUSDT");
+        pairs.add("XRPUSDT");
+        pairs.add("BCHUSDT");
+        pairs.add("ETHUSDT");
+        pairs.add("1INCHUSDT");
+        pairs.add("DOTUSDT");
+        pairs.parallelStream().forEach((pair)-> barSeriesCacheManager.startMultiBarSeries(pair));
 
     }
 

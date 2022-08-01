@@ -5,7 +5,6 @@ import org.antlr.v4.runtime.tree.ErrorNode;
 import org.ta4j.core.BaseStrategy;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.Rule;
-import org.ta4j.core.Strategy;
 import org.ta4j.core.num.Num;
 
 import java.util.ArrayList;

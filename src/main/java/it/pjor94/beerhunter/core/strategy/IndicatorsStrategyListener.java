@@ -1,12 +1,21 @@
 package it.pjor94.beerhunter.core.strategy;
 
+import it.pjor94.beerhunter.core.indicators.RRIIndicator;
+import it.pjor94.beerhunter.core.indicators.SmaShift;
+import org.ta4j.core.Bar;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.indicators.*;
 import org.ta4j.core.indicators.adx.ADXIndicator;
+import org.ta4j.core.indicators.bollinger.BollingerBandsLowerIndicator;
+import org.ta4j.core.indicators.bollinger.BollingerBandsMiddleIndicator;
+import org.ta4j.core.indicators.bollinger.BollingerBandsUpperIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
 import org.ta4j.core.indicators.helpers.ConstantIndicator;
 import org.ta4j.core.indicators.helpers.VolumeIndicator;
+import org.ta4j.core.indicators.pivotpoints.PivotPointIndicator;
+import org.ta4j.core.indicators.pivotpoints.TimeLevel;
+import org.ta4j.core.indicators.statistics.StandardDeviationIndicator;
 import org.ta4j.core.indicators.volume.*;
 import org.ta4j.core.num.DoubleNum;
 import org.ta4j.core.num.Num;
@@ -111,6 +120,34 @@ public class IndicatorsStrategyListener extends BHStrategyListenerImpl {
   public void exitRsi(StrategyParser.RsiContext ctx) {
     Integer timeFrame = timeFrameStack.pop();
     indicatorStack.push(new RSIIndicator(closePrice, timeFrame));
+  }
+
+  @Override
+  public void exitSrsi(StrategyParser.SrsiContext ctx) {
+    Integer timeFrame = timeFrameStack.pop();
+    indicatorStack.push(new StochasticRSIIndicator(closePrice, timeFrame));
+  }
+
+  @Override
+  public void exitBbm(StrategyParser.BbmContext ctx) {
+    Integer timeFrame = timeFrameStack.pop();
+    indicatorStack.push(new BollingerBandsMiddleIndicator(new SMAIndicator(closePrice, timeFrame)));
+  }
+
+  @Override
+  public void exitBbu(StrategyParser.BbuContext ctx) {
+    Integer timeFrame = timeFrameStack.pop();
+    var bbm = new BollingerBandsMiddleIndicator(new SMAIndicator(closePrice, timeFrame));
+    StandardDeviationIndicator sd = new StandardDeviationIndicator(closePrice, timeFrame);
+    indicatorStack.push(new BollingerBandsUpperIndicator(bbm, sd));
+  }
+
+  @Override
+  public void exitBbl(StrategyParser.BblContext ctx) {
+    Integer timeFrame = timeFrameStack.pop();
+    var bbm = new BollingerBandsMiddleIndicator(new SMAIndicator(closePrice, timeFrame));
+    StandardDeviationIndicator sd = new StandardDeviationIndicator(closePrice, timeFrame);
+    indicatorStack.push(new BollingerBandsLowerIndicator(bbm, sd));
   }
 
   @Override
@@ -226,6 +263,24 @@ public class IndicatorsStrategyListener extends BHStrategyListenerImpl {
   @Override
   public void exitObv(StrategyParser.ObvContext ctx) {
     indicatorStack.push(new OnBalanceVolumeIndicator(barSeries));
+  }
+
+  @Override
+  public void exitRri(StrategyParser.RriContext ctx) {
+    indicatorStack.push(new RRIIndicator(barSeries) );
+  }
+
+  @Override
+  public void exitSmashift(StrategyParser.SmashiftContext ctx) {
+    int timeframe = timeFrameStack.pop();
+    int shifTime  =  timeFrameStack.pop();
+    indicatorStack.push(new SmaShift(closePrice, timeframe,shifTime));
+  }
+
+  @Override
+  public void exitPivot(StrategyParser.PivotContext ctx) {
+    Integer timeframe = timeFrameStack.pop();
+    indicatorStack.push(new PivotPointIndicator(barSeries,TimeLevel.values()[timeframe]));
   }
 
   @Override

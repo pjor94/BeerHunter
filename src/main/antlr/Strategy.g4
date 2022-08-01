@@ -39,6 +39,7 @@ indicator
     | wma
     | cci
     | rsi
+    | srsi
     | cprice
     | volume
     | ui
@@ -58,10 +59,28 @@ indicator
     | pvi
     | rocv
     | ppo
+    | bbm
+    | bbu
+    | bbl
+    | rri
+    | smashift
+    | pivot
     ;
 
 sma
     : 'SMA' LBRACKET timeframe RBRACKET
+    ;
+
+bbm
+    : 'BBM' LBRACKET timeframe RBRACKET
+    ;
+
+bbu
+    : 'BBU' LBRACKET timeframe RBRACKET
+    ;
+
+bbl
+    : 'BBL' LBRACKET timeframe RBRACKET
     ;
 
 ema
@@ -90,6 +109,10 @@ cci
 
 rsi
     : 'RSI' LBRACKET timeframe RBRACKET
+    ;
+
+srsi
+    : 'SRSI' LBRACKET timeframe RBRACKET
     ;
 
 kama
@@ -140,6 +163,10 @@ ppo
     : 'PPO' LBRACKET timeframe ',' timeframe RBRACKET
     ;
 
+smashift
+    : 'SMASHIFT' LBRACKET timeframe ',' timeframe RBRACKET
+    ;
+
 cprice
     : 'CPRICE'
     ;
@@ -166,6 +193,15 @@ pvi
 
 iii
     : 'III'
+    ;
+
+rri
+    : 'RRI'
+    ;
+
+
+pivot
+    : 'PIVOT' LBRACKET timeframe RBRACKET
     ;
 
 value

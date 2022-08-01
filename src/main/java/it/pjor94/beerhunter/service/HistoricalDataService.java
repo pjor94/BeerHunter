@@ -97,7 +97,7 @@ public class HistoricalDataService {
                 hasToBreak = true;
             }
         }
-        log.info(pair+"  HISTORY UPDATE COMPLETE");
+        log.info(pair+"  HISTORY UPDATE COMPLETED");
         return historicalData;
 
     }
